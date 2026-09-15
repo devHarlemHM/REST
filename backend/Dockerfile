@@ -22,7 +22,7 @@ EXPOSE ${BACKEND_PORT}
 RUN echo '#!/bin/sh' > /app/startup.sh && \
     echo 'set -e' >> /app/startup.sh && \
     echo 'echo "Starting application with automatic database migration..."' >> /app/startup.sh && \
-    echo 'echo "Database config: $DATABASE_URL"' >> /app/startup.sh && \
+    echo 'echo "Database configuration loaded."' >> /app/startup.sh && \
     echo 'echo "Waiting for database to be ready..."' >> /app/startup.sh && \
     echo 'sleep 10' >> /app/startup.sh && \
     echo 'echo "Applying migrations (db:migrate)..."' >> /app/startup.sh && \
