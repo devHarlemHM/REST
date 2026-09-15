@@ -12,8 +12,8 @@ const options: swaggerJSDoc.Options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000',
-        description: 'Servidor Local (Docker / Dev)',
+        url: '/',
+        description: 'Servidor actual',
       },
     ],
     components: {

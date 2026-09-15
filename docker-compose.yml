@@ -2,183 +2,248 @@ name: restapp
 
 services:
   nginx:
-    build: ./deploy/nginx
+    build:
+      context: ./deploy/nginx
+      args:
+        HTTP_PORT: ${HTTP_PORT:?HTTP_PORT is required}
+        HTTPS_PORT: ${HTTPS_PORT:?HTTPS_PORT is required}
     restart: unless-stopped
     environment:
-      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-restapp.site}
-      APP_DOMAIN: ${APP_DOMAIN:-app.restapp.site}
+      HTTP_PORT: ${HTTP_PORT:?HTTP_PORT is required}
+      HTTPS_PORT: ${HTTPS_PORT:?HTTPS_PORT is required}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
+      TEST_ADMIN_DOMAIN: ${TEST_ADMIN_DOMAIN:?TEST_ADMIN_DOMAIN is required}
+      TEST_APP_DOMAIN: ${TEST_APP_DOMAIN:?TEST_APP_DOMAIN is required}
+      TEST_API_DOMAIN: ${TEST_API_DOMAIN:?TEST_API_DOMAIN is required}
+      ADMIN_PORT: ${ADMIN_PORT:?ADMIN_PORT is required}
+      APP_PORT: ${APP_PORT:?APP_PORT is required}
+      TEST_ADMIN_PORT: ${TEST_ADMIN_PORT:?TEST_ADMIN_PORT is required}
+      TEST_APP_PORT: ${TEST_APP_PORT:?TEST_APP_PORT is required}
+      BACKEND_PORT: ${BACKEND_PORT:?BACKEND_PORT is required}
+      TEST_BACKEND_PORT: ${TEST_BACKEND_PORT:?TEST_BACKEND_PORT is required}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${HTTP_PORT:?HTTP_PORT is required}:${HTTP_PORT:?HTTP_PORT is required}"
+      - "${HTTPS_PORT:?HTTPS_PORT is required}:${HTTPS_PORT:?HTTPS_PORT is required}"
     volumes:
       - certbot_conf:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
     depends_on:
-      app:
-        condition: service_healthy
-      admin:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-    networks:
-      - web
+      app: { condition: service_healthy }
+      admin: { condition: service_healthy }
+      backend: { condition: service_healthy }
+      testapp: { condition: service_healthy }
+      testadmin: { condition: service_healthy }
+      testbackend: { condition: service_healthy }
+    networks: [web]
 
   app:
     build:
       context: ./app
       args:
-        API_BASE_URL: ${API_BASE_URL:-https://app.restapp.site}
+        API_BASE_URL: ${API_URL:?API_URL is required}
+        FRONTEND_PORT: ${APP_PORT:?APP_PORT is required}
     restart: unless-stopped
-    expose:
-      - "80"
-    networks:
-      - web
+    environment:
+      FRONTEND_PORT: ${APP_PORT:?APP_PORT is required}
+    expose: ["${APP_PORT:?APP_PORT is required}"]
+    networks: [web]
 
   admin:
     build:
       context: ./admin
       args:
-        VITE_API_URL: ${VITE_API_URL:-/}
+        VITE_API_URL: ${API_URL:?API_URL is required}
+        FRONTEND_PORT: ${ADMIN_PORT:?ADMIN_PORT is required}
     restart: unless-stopped
-    expose:
-      - "80"
-    networks:
-      - web
+    environment:
+      FRONTEND_PORT: ${ADMIN_PORT:?ADMIN_PORT is required}
+    expose: ["${ADMIN_PORT:?ADMIN_PORT is required}"]
+    networks: [web]
+
+  testapp:
+    build:
+      context: ./app
+      args:
+        API_BASE_URL: ${TEST_API_URL:?TEST_API_URL is required}
+        FRONTEND_PORT: ${TEST_APP_PORT:?TEST_APP_PORT is required}
+    restart: unless-stopped
+    environment:
+      FRONTEND_PORT: ${TEST_APP_PORT:?TEST_APP_PORT is required}
+    expose: ["${TEST_APP_PORT:?TEST_APP_PORT is required}"]
+    networks: [web]
+
+  testadmin:
+    build:
+      context: ./admin
+      args:
+        VITE_API_URL: ${TEST_API_URL:?TEST_API_URL is required}
+        FRONTEND_PORT: ${TEST_ADMIN_PORT:?TEST_ADMIN_PORT is required}
+    restart: unless-stopped
+    environment:
+      FRONTEND_PORT: ${TEST_ADMIN_PORT:?TEST_ADMIN_PORT is required}
+    expose: ["${TEST_ADMIN_PORT:?TEST_ADMIN_PORT is required}"]
+    networks: [web]
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        BACKEND_PORT: ${BACKEND_PORT:?BACKEND_PORT is required}
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-restapp}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-mental_health_app}
+      PORT: ${BACKEND_PORT:?BACKEND_PORT is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:${POSTGRES_PORT:?POSTGRES_PORT is required}/${POSTGRES_DB:?POSTGRES_DB is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://restapp.site,https://app.restapp.site}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:?JWT_EXPIRES_IN is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OLLAMA_API_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2:1.5b}
-      USE_OLLAMA: ${USE_OLLAMA:-true}
-      SENTIMENT_API_URL: http://sentiment:8000
-    expose:
-      - "3000"
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      OLLAMA_API_URL: http://ollama:${OLLAMA_PORT:?OLLAMA_PORT is required}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:?OLLAMA_MODEL is required}
+      USE_OLLAMA: ${USE_OLLAMA:?USE_OLLAMA is required}
+      SENTIMENT_API_URL: http://sentiment:${SENTIMENT_PORT:?SENTIMENT_PORT is required}
+    expose: ["${BACKEND_PORT:?BACKEND_PORT is required}"]
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + process.env.PORT + '/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"], interval: 30s, timeout: 5s, retries: 5, start_period: 30s }
     depends_on:
-      postgres:
-        condition: service_healthy
-      sentiment:
-        condition: service_healthy
-      ollama:
-        condition: service_started
-      ollama-init:
-        condition: service_completed_successfully
-    networks:
-      - web
-      - internal
+      postgres: { condition: service_healthy }
+      sentiment: { condition: service_healthy }
+      ollama: { condition: service_started }
+      ollama-init: { condition: service_completed_successfully }
+    networks: [web, production_internal]
+
+  testbackend:
+    build:
+      context: ./backend
+      args:
+        BACKEND_PORT: ${TEST_BACKEND_PORT:?TEST_BACKEND_PORT is required}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: testing
+      PORT: ${TEST_BACKEND_PORT:?TEST_BACKEND_PORT is required}
+      DATABASE_URL: postgresql://${TEST_POSTGRES_USER:?TEST_POSTGRES_USER is required}:${TEST_POSTGRES_PASSWORD:?TEST_POSTGRES_PASSWORD is required}@testpostgres:${TEST_POSTGRES_PORT:?TEST_POSTGRES_PORT is required}/${TEST_POSTGRES_DB:?TEST_POSTGRES_DB is required}
+      JWT_SECRET: ${TEST_JWT_SECRET:?TEST_JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${TEST_JWT_EXPIRES_IN:?TEST_JWT_EXPIRES_IN is required}
+      CORS_ORIGINS: ${TEST_CORS_ORIGINS:?TEST_CORS_ORIGINS is required}
+      OPENAI_API_KEY: ${TEST_OPENAI_API_KEY:-}
+      OLLAMA_API_URL: http://testollama:${TEST_OLLAMA_PORT:?TEST_OLLAMA_PORT is required}
+      OLLAMA_MODEL: ${TEST_OLLAMA_MODEL:?TEST_OLLAMA_MODEL is required}
+      USE_OLLAMA: ${TEST_USE_OLLAMA:?TEST_USE_OLLAMA is required}
+      SENTIMENT_API_URL: http://testsentiment:${TEST_SENTIMENT_PORT:?TEST_SENTIMENT_PORT is required}
+    expose: ["${TEST_BACKEND_PORT:?TEST_BACKEND_PORT is required}"]
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + process.env.PORT + '/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"], interval: 30s, timeout: 5s, retries: 5, start_period: 30s }
+    depends_on:
+      testpostgres: { condition: service_healthy }
+      testsentiment: { condition: service_healthy }
+      testollama: { condition: service_started }
+      testollama-init: { condition: service_completed_successfully }
+    networks: [web, testing_internal]
 
   postgres:
     image: postgres:14
+    command: ["postgres", "-p", "${POSTGRES_PORT:?POSTGRES_PORT is required}"]
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mental_health_app}
-      POSTGRES_USER: ${POSTGRES_USER:-restapp}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - internal
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -p ${POSTGRES_PORT:?POSTGRES_PORT is required}"], interval: 10s, timeout: 5s, retries: 10 }
+    networks: [production_internal]
+
+  testpostgres:
+    image: postgres:14
+    command: ["postgres", "-p", "${TEST_POSTGRES_PORT:?TEST_POSTGRES_PORT is required}"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TEST_POSTGRES_DB:?TEST_POSTGRES_DB is required}
+      POSTGRES_USER: ${TEST_POSTGRES_USER:?TEST_POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD:?TEST_POSTGRES_PASSWORD is required}
+    volumes: [test_postgres_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -p ${TEST_POSTGRES_PORT:?TEST_POSTGRES_PORT is required}"], interval: 10s, timeout: 5s, retries: 10 }
+    networks: [testing_internal]
 
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
     environment:
-      OLLAMA_HOST: 0.0.0.0
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 20s
-    networks:
-      - internal
+      OLLAMA_HOST: 0.0.0.0:${OLLAMA_PORT:?OLLAMA_PORT is required}
+    volumes: [ollama_data:/root/.ollama]
+    healthcheck: { test: ["CMD", "ollama", "list"], interval: 30s, timeout: 10s, retries: 10, start_period: 20s }
+    networks: [production_internal]
+
+  testollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:${TEST_OLLAMA_PORT:?TEST_OLLAMA_PORT is required}
+    volumes: [test_ollama_data:/root/.ollama]
+    healthcheck: { test: ["CMD", "ollama", "list"], interval: 30s, timeout: 10s, retries: 10, start_period: 20s }
+    networks: [testing_internal]
 
   ollama-init:
     image: curlimages/curl:latest
     restart: "no"
     environment:
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2:1.5b}
-    depends_on:
-      ollama:
-        condition: service_healthy
-    command:
-      - sh
-      - -c
-      - >-
-        curl -fsS http://ollama:11434/api/tags | grep -q "$${OLLAMA_MODEL}"
-        || curl -fsS http://ollama:11434/api/pull
-        -H 'Content-Type: application/json'
-        -d "{\"name\":\"$${OLLAMA_MODEL}\"}"
-    networks:
-      - internal
+      OLLAMA_MODEL: ${OLLAMA_MODEL:?OLLAMA_MODEL is required}
+    depends_on: { ollama: { condition: service_healthy } }
+    command: ["sh", "-c", "curl -fsS http://ollama:${OLLAMA_PORT:?OLLAMA_PORT is required}/api/tags | grep -q \"$${OLLAMA_MODEL}\" || curl -fsS http://ollama:${OLLAMA_PORT:?OLLAMA_PORT is required}/api/pull -H 'Content-Type: application/json' -d \"{\\\"name\\\":\\\"$${OLLAMA_MODEL}\\\"}\""]
+    networks: [production_internal]
+
+  testollama-init:
+    image: curlimages/curl:latest
+    restart: "no"
+    environment:
+      OLLAMA_MODEL: ${TEST_OLLAMA_MODEL:?TEST_OLLAMA_MODEL is required}
+    depends_on: { testollama: { condition: service_healthy } }
+    command: ["sh", "-c", "curl -fsS http://testollama:${TEST_OLLAMA_PORT:?TEST_OLLAMA_PORT is required}/api/tags | grep -q \"$${OLLAMA_MODEL}\" || curl -fsS http://testollama:${TEST_OLLAMA_PORT:?TEST_OLLAMA_PORT is required}/api/pull -H 'Content-Type: application/json' -d \"{\\\"name\\\":\\\"$${OLLAMA_MODEL}\\\"}\""]
+    networks: [testing_internal]
 
   sentiment:
-    build: ./backend/sentiment
+    build:
+      context: ./backend/sentiment
+      args:
+        SENTIMENT_PORT: ${SENTIMENT_PORT:?SENTIMENT_PORT is required}
     restart: unless-stopped
     environment:
+      SENTIMENT_PORT: ${SENTIMENT_PORT:?SENTIMENT_PORT is required}
       TRANSFORMERS_CACHE: /root/.cache/huggingface
-    volumes:
-      - hf_cache:/root/.cache/huggingface
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
-    networks:
-      - internal
+    volumes: [hf_cache:/root/.cache/huggingface]
+    healthcheck: { test: ["CMD-SHELL", "python -c \"import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['SENTIMENT_PORT'] + '/health')\""], interval: 30s, timeout: 10s, retries: 5, start_period: 120s }
+    networks: [production_internal]
+
+  testsentiment:
+    build:
+      context: ./backend/sentiment
+      args:
+        SENTIMENT_PORT: ${TEST_SENTIMENT_PORT:?TEST_SENTIMENT_PORT is required}
+    restart: unless-stopped
+    environment:
+      SENTIMENT_PORT: ${TEST_SENTIMENT_PORT:?TEST_SENTIMENT_PORT is required}
+      TRANSFORMERS_CACHE: /root/.cache/huggingface
+    volumes: [test_hf_cache:/root/.cache/huggingface]
+    healthcheck: { test: ["CMD-SHELL", "python -c \"import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['SENTIMENT_PORT'] + '/health')\""], interval: 30s, timeout: 10s, retries: 5, start_period: 120s }
+    networks: [testing_internal]
 
   certbot:
     image: certbot/certbot:latest
     profiles: ["ssl"]
-    volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    command:
-      - certonly
-      - --webroot
-      - --webroot-path=/var/www/certbot
-      - --email=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}
-      - --agree-tos
-      - --no-eff-email
-      - --cert-name=${ADMIN_DOMAIN:-restapp.site}
-      - -d
-      - ${ADMIN_DOMAIN:-restapp.site}
-      - -d
-      - ${APP_DOMAIN:-app.restapp.site}
-    networks:
-      - web
+    volumes: [certbot_conf:/etc/letsencrypt, certbot_www:/var/www/certbot]
+    command: ["certonly", "--webroot", "--webroot-path=/var/www/certbot", "--email=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}", "--agree-tos", "--no-eff-email", "--cert-name=${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}", "-d", "${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}", "-d", "${APP_DOMAIN:?APP_DOMAIN is required}", "-d", "${API_DOMAIN:?API_DOMAIN is required}", "-d", "${TEST_ADMIN_DOMAIN:?TEST_ADMIN_DOMAIN is required}", "-d", "${TEST_APP_DOMAIN:?TEST_APP_DOMAIN is required}", "-d", "${TEST_API_DOMAIN:?TEST_API_DOMAIN is required}"]
+    networks: [web]
 
 networks:
-  web:
-    driver: bridge
-  internal:
-    driver: bridge
+  web: { driver: bridge }
+  production_internal: { driver: bridge }
+  testing_internal: { driver: bridge }
 
 volumes:
   postgres_data:
+  test_postgres_data:
   ollama_data:
+  test_ollama_data:
   hf_cache:
+  test_hf_cache:
   certbot_conf:
   certbot_www:

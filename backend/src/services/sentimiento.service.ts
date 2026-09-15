@@ -17,7 +17,11 @@
  * chat.controller.ts y siempre se evalúa antes y de forma independiente.
  */
 
-const SENTIMENT_API_URL = process.env.SENTIMENT_API_URL || 'http://localhost:8000';
+const SENTIMENT_API_URL = process.env.SENTIMENT_API_URL;
+
+if (!SENTIMENT_API_URL) {
+  throw new Error('SENTIMENT_API_URL is required');
+}
 const SENTIMENT_TIMEOUT_MS = 2000;
 
 export type SentimientoLabel = 'NEG' | 'NEU' | 'POS';

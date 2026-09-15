@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir \
 
 COPY app/ ./app/
 
-EXPOSE 8000
+ARG SENTIMENT_PORT
+ENV SENTIMENT_PORT=${SENTIMENT_PORT}
+EXPOSE ${SENTIMENT_PORT}
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $SENTIMENT_PORT"]

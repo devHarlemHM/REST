@@ -9,25 +9,17 @@ dotenv.config();
 function getDatabaseConfig() {
   const databaseUrl = process.env.DATABASE_URL;
   
-  if (databaseUrl) {
-    // Si existe DATABASE_URL, parsearla
-    const url = new URL(databaseUrl);
-    return {
-      host: url.hostname,
-      port: parseInt(url.port) || 5432,
-      user: url.username,
-      password: url.password,
-      database: url.pathname.slice(1), // Remove leading slash
-    };
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is required');
   }
-  
-  // Si no existe DATABASE_URL, usar variables individuales con valores por defecto
+
+  const url = new URL(databaseUrl);
   return {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DB_NAME || 'mental_health_app',
+    host: url.hostname,
+    port: parseInt(url.port),
+    user: url.username,
+    password: url.password,
+    database: url.pathname.slice(1),
   };
 }
 
@@ -38,4 +30,4 @@ const pool = new Pool(getDatabaseConfig());
 export const db = drizzle(pool, { schema });
 
 // Export schema for use elsewhere
-export { schema }; 
+export { schema };

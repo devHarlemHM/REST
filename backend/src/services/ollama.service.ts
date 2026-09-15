@@ -9,8 +9,12 @@ import {
   type DimensionCalculada,
 } from '../shared/utils/semaforo-dimensiones.utils';
 
-const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2:1.5b'; // Modelo balanceado para CPU
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL;
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL;
+
+if (!OLLAMA_API_URL || !OLLAMA_MODEL) {
+  throw new Error('OLLAMA_API_URL and OLLAMA_MODEL are required');
+}
 
 interface OllamaResponse {
   model: string;

@@ -41,8 +41,17 @@ const server = http.createServer(app);
 // Middleware
 // ============================================================
 
+const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (corsOrigins.length === 0) {
+  throw new Error('CORS_ORIGINS is required');
+}
+
 const corsOptions = {
-  origin: '*',
+  origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
@@ -67,7 +76,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 const io = new SocketServer(server, {
   cors: {
-    origin: '*',
+    origin: corsOrigins,
     methods: ['GET', 'POST']
   }
 });
@@ -142,7 +151,11 @@ void (async () => {
 // SERVER
 // ============================================================
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT);
+
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error('PORT must be a valid port number');
+}
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('');

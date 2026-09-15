@@ -15,7 +15,8 @@ COPY src/ ./src/
 # Build application
 RUN npm run build
 
-EXPOSE 3000
+ARG BACKEND_PORT
+EXPOSE ${BACKEND_PORT}
 
 # Create startup script as an actual file
 RUN echo '#!/bin/sh' > /app/startup.sh && \
@@ -34,4 +35,4 @@ RUN echo '#!/bin/sh' > /app/startup.sh && \
 RUN ls -la /app/startup.sh && cat /app/startup.sh
 
 # Use exec form for CMD
-CMD ["/bin/sh", "/app/startup.sh"] 
+CMD ["/bin/sh", "/app/startup.sh"]
