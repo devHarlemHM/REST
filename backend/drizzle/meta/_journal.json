@@ -1,0 +1,41 @@
+{
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1773412065223,
+      "tag": "0000_cool_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1775700000000,
+      "tag": "0001_premios_canje",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1775851200000,
+      "tag": "0002_streak_commitment",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1776024000000,
+      "tag": "0003_sentimiento_mensajes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1776200000000,
+      "tag": "0004_semaforo_dimensiones",
+      "breakpoints": true
+    }
+  ]
+}

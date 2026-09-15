@@ -1,0 +1,184 @@
+name: restapp
+
+services:
+  nginx:
+    build: ./deploy/nginx
+    restart: unless-stopped
+    environment:
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-restapp.site}
+      APP_DOMAIN: ${APP_DOMAIN:-app.restapp.site}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - web
+
+  app:
+    build:
+      context: ./app
+      args:
+        API_BASE_URL: ${API_BASE_URL:-https://app.restapp.site}
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - web
+
+  admin:
+    build:
+      context: ./admin
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/}
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - web
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-restapp}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-mental_health_app}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://restapp.site,https://app.restapp.site}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_API_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2:1.5b}
+      USE_OLLAMA: ${USE_OLLAMA:-true}
+      SENTIMENT_API_URL: http://sentiment:8000
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      sentiment:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
+    networks:
+      - web
+      - internal
+
+  postgres:
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mental_health_app}
+      POSTGRES_USER: ${POSTGRES_USER:-restapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    networks:
+      - internal
+
+  ollama-init:
+    image: curlimages/curl:latest
+    restart: "no"
+    environment:
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2:1.5b}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - >-
+        curl -fsS http://ollama:11434/api/tags | grep -q "$${OLLAMA_MODEL}"
+        || curl -fsS http://ollama:11434/api/pull
+        -H 'Content-Type: application/json'
+        -d "{\"name\":\"$${OLLAMA_MODEL}\"}"
+    networks:
+      - internal
+
+  sentiment:
+    build: ./backend/sentiment
+    restart: unless-stopped
+    environment:
+      TRANSFORMERS_CACHE: /root/.cache/huggingface
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - internal
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["ssl"]
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    command:
+      - certonly
+      - --webroot
+      - --webroot-path=/var/www/certbot
+      - --email=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}
+      - --agree-tos
+      - --no-eff-email
+      - --cert-name=${ADMIN_DOMAIN:-restapp.site}
+      - -d
+      - ${ADMIN_DOMAIN:-restapp.site}
+      - -d
+      - ${APP_DOMAIN:-app.restapp.site}
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  ollama_data:
+  hf_cache:
+  certbot_conf:
+  certbot_www:

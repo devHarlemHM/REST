@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+dist
+.env
+.env.*
+sentiment
+docs
+*.log
+docker-compose*.yml

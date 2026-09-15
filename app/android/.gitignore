@@ -1,0 +1,44 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# Build
+build/
+android/app/build/
+ios/Pods/
+linux/build/
+windows/build/
+macos/Build/
+web/.dart_tool/
+
+# Android
+/local.properties
+/.gradle
+/captures/
+/.cxx/
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# iOS
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/ServiceDefinitions.json
+
+# Xcode
+**/xcuserdata/
+**/DerivedData/
+*.xcworkspace
+
+# VS Code
+.vscode/
+.idea/
+
+# Keys (muy importante)
+key.properties
+**/*.keystore
+**/*.jks
