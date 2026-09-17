@@ -40,8 +40,8 @@ services:
 
 networks:
   edge:
+    external: true
     name: rest-edge
-    driver: bridge
 
 volumes:
   certbot_conf:
