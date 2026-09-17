@@ -1,0 +1,10 @@
+COMPOSE_PROJECT_NAME=rest-gateway
+HTTP_PORT=80
+HTTPS_PORT=443
+ADMIN_DOMAIN=restapp.site
+APP_DOMAIN=app.restapp.site
+API_DOMAIN=api.restapp.site
+TEST_ADMIN_DOMAIN=test.restapp.site
+TEST_APP_DOMAIN=test-app.restapp.site
+TEST_API_DOMAIN=api-test.restapp.site
+LETSENCRYPT_EMAIL=replace-with-your-email@example.com

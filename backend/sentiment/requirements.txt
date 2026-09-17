@@ -1,3 +1,0 @@
-pysentimiento
-fastapi
-uvicorn[standard]

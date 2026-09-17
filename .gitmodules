@@ -1,0 +1,12 @@
+[submodule "app"]
+	path = app
+	url = https://github.com/Jenny1416/RESTAPP.git
+	branch = main
+[submodule "admin"]
+	path = admin
+	url = https://github.com/JuanDres7/REST_Panel_Frontend.git
+	branch = main
+[submodule "backend"]
+	path = backend
+	url = https://github.com/hleonez/Backend_APP_REST-2026_2.git
+	branch = main

@@ -1,0 +1,48 @@
+services:
+  nginx:
+    build:
+      context: ./deploy/nginx
+      args:
+        HTTP_PORT: ${HTTP_PORT:-80}
+        HTTPS_PORT: ${HTTPS_PORT:-443}
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: ${HTTP_PORT:-80}
+      HTTPS_PORT: ${HTTPS_PORT:-443}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
+      TEST_ADMIN_DOMAIN: ${TEST_ADMIN_DOMAIN:?TEST_ADMIN_DOMAIN is required}
+      TEST_APP_DOMAIN: ${TEST_APP_DOMAIN:?TEST_APP_DOMAIN is required}
+      TEST_API_DOMAIN: ${TEST_API_DOMAIN:?TEST_API_DOMAIN is required}
+      ADMIN_PORT: 80
+      APP_PORT: 80
+      TEST_ADMIN_PORT: 80
+      TEST_APP_PORT: 80
+      BACKEND_PORT: 3000
+      TEST_BACKEND_PORT: 3000
+    ports:
+      - "${HTTP_PORT:-80}:${HTTP_PORT:-80}"
+      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
+    volumes:
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    networks: [edge]
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["ssl"]
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    command: ["certonly", "--webroot", "--webroot-path=/var/www/certbot", "--email=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}", "--agree-tos", "--no-eff-email", "--cert-name=${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}", "-d", "${ADMIN_DOMAIN}", "-d", "${APP_DOMAIN}", "-d", "${API_DOMAIN}", "-d", "${TEST_ADMIN_DOMAIN}", "-d", "${TEST_APP_DOMAIN}", "-d", "${TEST_API_DOMAIN}"]
+    networks: [edge]
+
+networks:
+  edge:
+    name: rest-edge
+    driver: bridge
+
+volumes:
+  certbot_conf:
+  certbot_www:
