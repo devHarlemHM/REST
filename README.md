@@ -7,6 +7,10 @@ Este repositorio integra tres proyectos mediante submodulos Git: `app` (Flutter)
 | `develop` | test | `https://api-test.restapp.site` |
 | `main` | production | `https://api.restapp.site` |
 
+Cada clon usa un unico `.env` privado. `API_URL` se inyecta como
+`API_BASE_URL` en Flutter y como `VITE_API_URL` en el Panel. Por eso ambos
+frontends quedan apuntando a la misma API seleccionada por el orquestador.
+
 ## Clonado y estructura del VPS
 
 ```bash
@@ -35,16 +39,24 @@ Tras resolver DNS, ejecuta el perfil `ssl` para solicitar el certificado y recre
 ```bash
 cp env/production.example .env
 # Reemplaza los secretos.
+chmod 600 .env
+grep '^API_URL=' .env
 docker compose --env-file .env up -d --build
 ```
+
+La verificacion debe mostrar `API_URL=https://api.restapp.site`.
 
 ## Pruebas
 
 ```bash
 cp env/test.example .env
 # Reemplaza los secretos.
+chmod 600 .env
+grep '^API_URL=' .env
 docker compose --env-file .env up -d --build
 ```
+
+La verificacion debe mostrar `API_URL=https://api-test.restapp.site`.
 
 Los proyectos y volumenes son independientes. Solo comparten `rest-edge`; PostgreSQL, Ollama y Sentiment permanecen en redes internas separadas.
 
@@ -62,7 +74,10 @@ git switch develop
 git pull --ff-only origin develop
 git submodule sync --recursive
 git submodule update --init --recursive app admin
-docker compose --env-file .env up -d --build --no-deps app admin
+grep '^API_URL=' .env
+docker compose --env-file .env build --pull app admin
+docker compose --env-file .env up -d --force-recreate --no-deps app admin
+docker compose --env-file .env ps app admin
 ```
 
 ### Solo frontends de produccion
@@ -77,7 +92,10 @@ git switch main
 git pull --ff-only origin main
 git submodule sync --recursive
 git submodule update --init --recursive app admin
-docker compose --env-file .env up -d --build --no-deps app admin
+grep '^API_URL=' .env
+docker compose --env-file .env build --pull app admin
+docker compose --env-file .env up -d --force-recreate --no-deps app admin
+docker compose --env-file .env ps app admin
 ```
 
 Para actualizar todo el entorno, incluida la infraestructura del backend, usa
