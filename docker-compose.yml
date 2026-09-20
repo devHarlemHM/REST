@@ -14,7 +14,6 @@ services:
     build:
       context: ./admin
       args:
-        APP_ENV: ${APP_ENV:?APP_ENV is required}
         VITE_API_URL: ${API_URL:?API_URL is required}
     restart: unless-stopped
     expose: ["80"]

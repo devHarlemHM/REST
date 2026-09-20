@@ -1,5 +1,4 @@
 COMPOSE_PROJECT_NAME=rest-production
-APP_ENV=production
 NODE_ENV=production
 API_URL=https://api.restapp.site
 APP_NETWORK_ALIAS=prodapp
