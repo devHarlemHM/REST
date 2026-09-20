@@ -7,9 +7,10 @@ Este repositorio integra tres proyectos mediante submodulos Git: `app` (Flutter)
 | `develop` | test | `https://api-test.restapp.site` |
 | `main` | production | `https://api.restapp.site` |
 
-Cada clon usa un unico `.env` privado. `API_URL` se inyecta como
-`API_BASE_URL` en Flutter y como `VITE_API_URL` en el Panel. Por eso ambos
-frontends quedan apuntando a la misma API seleccionada por el orquestador.
+Cada clon usa un unico `.env` privado. `APP_ENV` selecciona el entorno y
+`API_URL` fija la URL exacta con prioridad: se inyectan como `API_ENV` y
+`API_BASE_URL` en Flutter, y como `VITE_API_ENV` y `VITE_API_URL` en el Panel.
+Por eso los contenedores del VPS nunca usan el valor local predeterminado.
 
 ## Clonado y estructura del VPS
 
@@ -40,11 +41,12 @@ Tras resolver DNS, ejecuta el perfil `ssl` para solicitar el certificado y recre
 cp env/production.example .env
 # Reemplaza los secretos.
 chmod 600 .env
-grep '^API_URL=' .env
+grep -E '^(APP_ENV|API_URL)=' .env
 docker compose --env-file .env up -d --build
 ```
 
-La verificacion debe mostrar `API_URL=https://api.restapp.site`.
+La verificacion debe mostrar `APP_ENV=production` y
+`API_URL=https://api.restapp.site`.
 
 ## Pruebas
 
@@ -52,11 +54,12 @@ La verificacion debe mostrar `API_URL=https://api.restapp.site`.
 cp env/test.example .env
 # Reemplaza los secretos.
 chmod 600 .env
-grep '^API_URL=' .env
+grep -E '^(APP_ENV|API_URL)=' .env
 docker compose --env-file .env up -d --build
 ```
 
-La verificacion debe mostrar `API_URL=https://api-test.restapp.site`.
+La verificacion debe mostrar `APP_ENV=test` y
+`API_URL=https://api-test.restapp.site`.
 
 Los proyectos y volumenes son independientes. Solo comparten `rest-edge`; PostgreSQL, Ollama y Sentiment permanecen en redes internas separadas.
 
@@ -74,7 +77,7 @@ git switch develop
 git pull --ff-only origin develop
 git submodule sync --recursive
 git submodule update --init --recursive app admin
-grep '^API_URL=' .env
+grep -E '^(APP_ENV|API_URL)=' .env
 docker compose --env-file .env build --pull app admin
 docker compose --env-file .env up -d --force-recreate --no-deps app admin
 docker compose --env-file .env ps app admin
@@ -92,7 +95,7 @@ git switch main
 git pull --ff-only origin main
 git submodule sync --recursive
 git submodule update --init --recursive app admin
-grep '^API_URL=' .env
+grep -E '^(APP_ENV|API_URL)=' .env
 docker compose --env-file .env build --pull app admin
 docker compose --env-file .env up -d --force-recreate --no-deps app admin
 docker compose --env-file .env ps app admin

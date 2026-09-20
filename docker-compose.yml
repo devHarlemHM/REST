@@ -3,6 +3,7 @@ services:
     build:
       context: ./app
       args:
+        API_ENV: ${APP_ENV:?APP_ENV is required}
         API_BASE_URL: ${API_URL:?API_URL is required}
     restart: unless-stopped
     expose: ["80"]
@@ -14,6 +15,7 @@ services:
     build:
       context: ./admin
       args:
+        VITE_API_ENV: ${APP_ENV:?APP_ENV is required}
         VITE_API_URL: ${API_URL:?API_URL is required}
     restart: unless-stopped
     expose: ["80"]
