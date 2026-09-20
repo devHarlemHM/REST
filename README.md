@@ -112,6 +112,7 @@ exactamente con `origin/develop`. El `.env` no se pierde porque está ignorado
 por Git.
 
 ```bash
+set -e
 cd ~/rest/rest-develop
 
 git status
@@ -139,6 +140,7 @@ Ejecuta estos comandos después de integrar `develop` en `main`. Si el clon de
 producción tiene otro nombre, sustituye únicamente la primera ruta.
 
 ```bash
+set -e
 cd ~/rest/rest-main
 
 git status
