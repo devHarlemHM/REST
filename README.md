@@ -50,11 +50,37 @@ Los proyectos y volumenes son independientes. Solo comparten `rest-edge`; Postgr
 
 ## Actualizacion
 
+### Solo frontends de pruebas
+
+Actualiza `app` y `admin` desde los commits fijados en `REST/develop` y los
+reconstruye con `API_URL=https://api-test.restapp.site` definido en
+`/opt/rest/test/.env`. `--no-deps` evita recrear el backend y sus servicios:
+
 ```bash
-git pull --ff-only
+cd /opt/rest/test
+git switch develop
+git pull --ff-only origin develop
 git submodule sync --recursive
-git submodule update --init --recursive
-docker compose --env-file .env up -d --build
+git submodule update --init --recursive app admin
+docker compose --env-file .env up -d --build --no-deps app admin
 ```
+
+### Solo frontends de produccion
+
+Ejecuta este bloque cuando los cambios ya hayan sido integrados en `main`.
+El archivo `/opt/rest/production/.env` debe conservar
+`API_URL=https://api.restapp.site`:
+
+```bash
+cd /opt/rest/production
+git switch main
+git pull --ff-only origin main
+git submodule sync --recursive
+git submodule update --init --recursive app admin
+docker compose --env-file .env up -d --build --no-deps app admin
+```
+
+Para actualizar todo el entorno, incluida la infraestructura del backend, usa
+`docker compose --env-file .env up -d --build` sin limitar los servicios.
 
 No ejecutes `backend/docker-compose.yml`: el Compose raiz es la unica orquestacion del VPS.
