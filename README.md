@@ -1,187 +1,204 @@
 # REST — Orquestador de despliegue
 
-Este repositorio integra mediante submodulos Git:
+Este repositorio integra mediante submódulos Git:
 
 - `app`: aplicación Flutter.
-- `admin`: Panel React/Vite.
+- `admin`: panel React/Vite.
 - `backend`: API Express.
 
-## 1) Entornos desplegados
+## 1) Cómo se selecciona la API
 
-| Clon | Rama | `APP_ENV` | `API_URL` |
-|---|---|---|---|
-| `/opt/rest/test` | `develop` | `test` | `https://api-test.restapp.site` |
-| `/opt/rest/production` | `main` | `production` | `https://api.restapp.site` |
+Las URLs no están definidas en el código de los frontends. Cada instalación
+conserva un `.env` privado y la variable `API_URL` decide a qué API se conectan
+`app` y `admin`.
 
-`APP_ENV` selecciona el entorno y `API_URL` fija la URL exacta con prioridad.
-El Compose las inyecta así:
+Docker Compose realiza este mapeo durante el build:
 
-| Orquestador | Flutter | Panel |
+| `.env` del orquestador | Flutter | Panel |
 |---|---|---|
-| `APP_ENV` | `API_ENV` | `VITE_API_ENV` |
 | `API_URL` | `API_BASE_URL` | `VITE_API_URL` |
 
-Por esta razón los contenedores del VPS no utilizan la configuración local
-predeterminada de los frontends.
+Por tanto, no se modifica código para cambiar de entorno: se cambia `API_URL`
+en el `.env` correspondiente y se reconstruyen los dos frontends.
 
-## 2) Archivo `.env`
+| Instalación | Rama | `API_URL` |
+|---|---|---|
+| Local | `develop` | `http://localhost:3000` |
+| Pruebas | `develop` | `https://api-test.restapp.site` |
+| Producción | `main` | `https://api.restapp.site` |
+| Universidad | según corresponda | `http://179.197.239.216:3000` |
 
-Cada clon del VPS conserva un único `.env` privado. No reemplaces el archivo
-durante una actualización porque contiene secretos.
+La URL pública de una API no es un secreto: cualquier navegador puede verla en
+el tráfico de red. Contraseñas, tokens y llaves sí deben permanecer únicamente
+en `.env` y nunca se deben subir a Git.
 
-Pruebas debe incluir:
+## 2) Archivos `.env` del VPS
+
+Cada clon conserva su propio `.env`. Los archivos `env/test.example` y
+`env/production.example` son plantillas sin secretos; no reemplaces el `.env`
+real durante una actualización.
+
+Pruebas (`~/rest/rest-develop/.env`):
 
 ```dotenv
-APP_ENV=test
+COMPOSE_PROJECT_NAME=rest-test
+NODE_ENV=testing
 API_URL=https://api-test.restapp.site
 ```
 
-Produccion debe incluir:
+Producción (`~/rest/rest-main/.env`):
 
 ```dotenv
-APP_ENV=production
+COMPOSE_PROJECT_NAME=rest-production
+NODE_ENV=production
 API_URL=https://api.restapp.site
 ```
 
-Protege el archivo y verifica solamente las variables publicas:
+El resto de variables y secretos actuales se conservan sin cambios. Para
+proteger y comprobar solo la URL:
 
 ```bash
 chmod 600 .env
-grep -E '^(APP_ENV|API_URL)=' .env
+grep '^API_URL=' .env
 ```
 
-## 3) Clonado inicial
+## 3) Uso local del orquestador
+
+Crea el `.env` desde una plantilla y establece la URL local:
 
 ```bash
-git clone --recurse-submodules https://github.com/devHarlemHM/REST.git
-git submodule update --init --recursive
+cp env/test.example .env
+sed -i 's|^API_URL=.*|API_URL=http://localhost:3000|' .env
+# Completa POSTGRES_PASSWORD, JWT_SECRET y las demás credenciales.
+docker compose --env-file .env up -d --build
 ```
 
-Estructura esperada:
+Para usar otra API, cambia únicamente `API_URL` antes del build:
 
-```text
-/opt/rest/test        -> rama develop
-/opt/rest/production  -> rama main
+```dotenv
+# Pruebas
+API_URL=https://api-test.restapp.site
+
+# Producción
+API_URL=https://api.restapp.site
+
+# Universidad
+API_URL=http://179.197.239.216:3000
+```
+
+Después de cada cambio de URL hay que reconstruir `app` y `admin`, porque las
+variables de Vite y Flutter se incorporan al frontend compilado:
+
+```bash
+docker compose --env-file .env build --no-cache app admin
+docker compose --env-file .env up -d --force-recreate --no-deps app admin
 ```
 
 ## 4) Gateway compartido
 
-Los dominios públicos apuntan al gateway compartido. Se inicia una sola vez,
-normalmente desde el clon de producción:
+El gateway se inicia una sola vez, normalmente desde producción:
 
 ```bash
-cd /opt/rest/production
+cd ~/rest/rest-main
 cp env/gateway.example .env.gateway
 docker compose --env-file .env.gateway -f docker-compose.gateway.yml up -d --build
 ```
 
-## 5) Despliegue inicial de pruebas
+## 5) Actualizar pruebas en el VPS
+
+La ruta actual de pruebas es `~/rest/rest-develop`. El siguiente procedimiento
+crea primero una rama de respaldo del commit local y después sincroniza el clon
+exactamente con `origin/develop`. El `.env` no se pierde porque está ignorado
+por Git.
 
 ```bash
-cd /opt/rest/test
-cp env/test.example .env
-# Reemplaza POSTGRES_PASSWORD, JWT_SECRET y las demás credenciales.
-chmod 600 .env
-grep -E '^(APP_ENV|API_URL)=' .env
-docker compose --env-file .env up -d --build
-```
+cd ~/rest/rest-develop
 
-Debe mostrar:
-
-```text
-APP_ENV=test
-API_URL=https://api-test.restapp.site
-```
-
-## 6) Despliegue inicial de produccion
-
-```bash
-cd /opt/rest/production
-cp env/production.example .env
-# Reemplaza POSTGRES_PASSWORD, JWT_SECRET y las demás credenciales.
-chmod 600 .env
-grep -E '^(APP_ENV|API_URL)=' .env
-docker compose --env-file .env up -d --build
-```
-
-Debe mostrar:
-
-```text
-APP_ENV=production
-API_URL=https://api.restapp.site
-```
-
-## 7) Actualizar y recrear frontends de pruebas
-
-Este procedimiento actualiza solamente `app` y `admin`. No recrea backend,
-PostgreSQL, Ollama ni Sentiment.
-
-```bash
-cd /opt/rest/test
-
+git status
+git branch "backup/vps-test-$(date +%Y%m%d-%H%M%S)"
+git fetch origin develop
 git switch develop
-git pull --ff-only origin develop
-git submodule sync --recursive
-git submodule update --init --recursive app admin
+git reset --hard origin/develop
 
-grep -E '^(APP_ENV|API_URL)=' .env
+git submodule sync --recursive
+git submodule update --init --recursive --force app admin
+
+grep '^API_URL=' .env
+# Debe mostrar: API_URL=https://api-test.restapp.site
 
 docker compose --env-file .env build --pull --no-cache app admin
 docker compose --env-file .env up -d --force-recreate --no-deps app admin
 docker compose --env-file .env ps app admin
 ```
 
-## 8) Actualizar y recrear frontends de produccion
+Esto no recrea `backend`, PostgreSQL, Ollama ni Sentiment.
 
-Ejecuta este procedimiento después de integrar los cambios en `main`:
+## 6) Actualizar producción en el VPS
+
+Ejecuta estos comandos después de integrar `develop` en `main`. Si el clon de
+producción tiene otro nombre, sustituye únicamente la primera ruta.
 
 ```bash
-cd /opt/rest/production
+cd ~/rest/rest-main
 
+git status
+git branch "backup/vps-production-$(date +%Y%m%d-%H%M%S)"
+git fetch origin main
 git switch main
-git pull --ff-only origin main
-git submodule sync --recursive
-git submodule update --init --recursive app admin
+git reset --hard origin/main
 
-grep -E '^(APP_ENV|API_URL)=' .env
+git submodule sync --recursive
+git submodule update --init --recursive --force app admin
+
+grep '^API_URL=' .env
+# Debe mostrar: API_URL=https://api.restapp.site
 
 docker compose --env-file .env build --pull --no-cache app admin
 docker compose --env-file .env up -d --force-recreate --no-deps app admin
 docker compose --env-file .env ps app admin
 ```
 
-## 9) Verificacion
+## 7) Verificación y logs
 
-Pruebas:
-
-```bash
-docker logs --tail=100 rest-test-app-1
-docker logs --tail=100 rest-test-admin-1
-curl -fsS https://api-test.restapp.site/health
-```
-
-Produccion:
-
-```bash
-docker logs --tail=100 rest-production-app-1
-docker logs --tail=100 rest-production-admin-1
-curl -fsS https://api.restapp.site/health
-```
-
-Para confirmar las revisiones desplegadas:
+Revisiones desplegadas:
 
 ```bash
 git log -1 --oneline
 git submodule status app admin
 ```
 
-## 10) Actualizar todo el entorno
+Logs de pruebas:
 
-Para reconstruir también backend y servicios internos:
+```bash
+docker logs --tail=100 -f rest-test-app-1
+docker logs --tail=100 -f rest-test-admin-1
+docker logs --tail=100 -f rest-test-backend-1
+docker logs --tail=100 -f rest-test-ollama-1
+```
+
+Logs de producción:
+
+```bash
+docker logs --tail=100 -f rest-production-app-1
+docker logs --tail=100 -f rest-production-admin-1
+docker logs --tail=100 -f rest-production-backend-1
+docker logs --tail=100 -f rest-production-ollama-1
+```
+
+Comprobar las APIs públicas:
+
+```bash
+curl -fsS https://api-test.restapp.site/health
+curl -fsS https://api.restapp.site/health
+```
+
+## 8) Actualizar todo el entorno
+
+Solo cuando también se deban reconstruir backend y servicios internos:
 
 ```bash
 docker compose --env-file .env up -d --build
 ```
 
-No ejecutes `backend/docker-compose.yml`; el Compose raíz es la única
-orquestación del VPS.
+No ejecutes `backend/docker-compose.yml` en el VPS; el `docker-compose.yml` de
+este repositorio es el orquestador de cada entorno.

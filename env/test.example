@@ -1,5 +1,4 @@
 COMPOSE_PROJECT_NAME=rest-test
-APP_ENV=test
 NODE_ENV=testing
 API_URL=https://api-test.restapp.site
 APP_NETWORK_ALIAS=testapp
