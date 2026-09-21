@@ -12,7 +12,7 @@ Orquestador principal del proyecto. Integra estos repositorios como submódulos:
 2. [Preparar el proyecto](#2-preparar-el-proyecto)
 3. [Ejecutar desde la terminal](#3-ejecutar-desde-la-terminal)
 4. [Ejecutar los frontends con Docker](#4-ejecutar-los-frontends-con-docker)
-5. [Comandos 2 en 1](#5-comandos-2-en-1-cambiar-url-y-levantar)
+5. [Comandos directos por entorno](#5-comandos-directos-por-entorno)
 6. [Seguridad de los `.env`](#6-seguridad-de-los-env)
 7. [Actualizar pruebas en el VPS](#7-actualizar-pruebas-en-el-vps)
 8. [Actualizar producción en el VPS](#8-actualizar-producción-en-el-vps)
@@ -222,79 +222,112 @@ docker compose --env-file .env -p rest-panel down
 docker compose down
 ```
 
-## 5) Comandos 2 en 1: cambiar URL y levantar
+## 5) Comandos directos por entorno
 
-Ejecuta estos comandos desde la raíz del repositorio. Cada comando actualiza el
-`.env` y levanta inmediatamente el frontend. Para ejecución por terminal abre
-dos terminales: una para Flutter y otra para el panel.
+No es obligatorio crear un `.env`. La URL puede enviarse directamente en el
+mismo comando que ejecuta o construye el frontend.
 
-### 5.1) Local desde la terminal
+### 5.1) Flutter: ejecutar
 
-Terminal 1 — Flutter:
-
-```powershell
-@('API_BASE_URL=http://localhost:3000','ANDROID_API_BASE_URL=http://10.0.2.2:3000') | Set-Content app/.env; Set-Location app; flutter run --dart-define-from-file=.env
-```
-
-Terminal 2 — Panel:
+Ejecuta desde la carpeta `app`:
 
 ```powershell
-'VITE_API_URL=http://localhost:3000' | Set-Content admin/.env; Set-Location admin; npm run dev
+# Local: Web, iOS o escritorio
+flutter run --dart-define=API_BASE_URL=http://localhost:3000
+
+# Local: emulador Android
+flutter run --dart-define=API_BASE_URL=http://localhost:3000 --dart-define=ANDROID_API_BASE_URL=http://10.0.2.2:3000
+
+# Pruebas
+flutter run --dart-define=API_BASE_URL=https://api-test.restapp.site
+
+# Producción
+flutter run --dart-define=API_BASE_URL=https://api.restapp.site
 ```
 
-### 5.2) Pruebas desde la terminal
-
-Terminal 1 — Flutter:
+### 5.2) Flutter: construir Web
 
 ```powershell
-'API_BASE_URL=https://api-test.restapp.site' | Set-Content app/.env; Set-Location app; flutter run --dart-define-from-file=.env
+# Local
+flutter build web --release --dart-define=API_BASE_URL=http://localhost:3000
+
+# Pruebas
+flutter build web --release --dart-define=API_BASE_URL=https://api-test.restapp.site
+
+# Producción
+flutter build web --release --dart-define=API_BASE_URL=https://api.restapp.site
 ```
 
-Terminal 2 — Panel:
+### 5.3) Flutter: construir APK
 
 ```powershell
-'VITE_API_URL=https://api-test.restapp.site' | Set-Content admin/.env; Set-Location admin; npm run dev
+# Local para emulador Android
+flutter build apk --release --dart-define=API_BASE_URL=http://localhost:3000 --dart-define=ANDROID_API_BASE_URL=http://10.0.2.2:3000
+
+# Pruebas
+flutter build apk --release --dart-define=API_BASE_URL=https://api-test.restapp.site
+
+# Producción
+flutter build apk --release --dart-define=API_BASE_URL=https://api.restapp.site
 ```
 
-### 5.3) Producción desde la terminal
+### 5.4) Panel: ejecutar
 
-> Estos comandos se conectan a datos reales de producción.
-
-Terminal 1 — Flutter:
+Ejecuta desde la carpeta `admin`:
 
 ```powershell
-'API_BASE_URL=https://api.restapp.site' | Set-Content app/.env; Set-Location app; flutter run --dart-define-from-file=.env
+# Local
+$env:VITE_API_URL='http://localhost:3000'; npm run dev
+
+# Pruebas
+$env:VITE_API_URL='https://api-test.restapp.site'; npm run dev
+
+# Producción
+$env:VITE_API_URL='https://api.restapp.site'; npm run dev
 ```
 
-Terminal 2 — Panel:
+### 5.5) Panel: construir
 
 ```powershell
-'VITE_API_URL=https://api.restapp.site' | Set-Content admin/.env; Set-Location admin; npm run dev
+# Local
+$env:VITE_API_URL='http://localhost:3000'; npm run build
+
+# Pruebas
+$env:VITE_API_URL='https://api-test.restapp.site'; npm run build
+
+# Producción
+$env:VITE_API_URL='https://api.restapp.site'; npm run build
 ```
 
-### 5.4) Local con Docker
+### 5.6) Docker
 
-Este único comando configura y levanta los dos frontends:
+App Flutter Web, desde la carpeta `app`:
 
 ```powershell
-@('API_BASE_URL=http://localhost:3000','ANDROID_API_BASE_URL=http://10.0.2.2:3000') | Set-Content app/.env; 'VITE_API_URL=http://localhost:3000' | Set-Content admin/.env; docker compose --env-file app/.env -f app/docker-compose.yml -p restapp up -d --build --force-recreate; docker compose --env-file admin/.env -f admin/docker-compose.yml -p rest-panel up -d --build --force-recreate
+# Local
+$env:API_BASE_URL='http://localhost:3000'; docker compose -p restapp up -d --build --force-recreate
+
+# Pruebas
+$env:API_BASE_URL='https://api-test.restapp.site'; docker compose -p restapp up -d --build --force-recreate
+
+# Producción
+$env:API_BASE_URL='https://api.restapp.site'; docker compose -p restapp up -d --build --force-recreate
 ```
 
-### 5.5) Pruebas con Docker
+Panel, desde la carpeta `admin`:
 
 ```powershell
-'API_BASE_URL=https://api-test.restapp.site' | Set-Content app/.env; 'VITE_API_URL=https://api-test.restapp.site' | Set-Content admin/.env; docker compose --env-file app/.env -f app/docker-compose.yml -p restapp up -d --build --force-recreate; docker compose --env-file admin/.env -f admin/docker-compose.yml -p rest-panel up -d --build --force-recreate
+# Local
+$env:VITE_API_URL='http://localhost:3000'; docker compose -p rest-panel up -d --build --force-recreate
+
+# Pruebas
+$env:VITE_API_URL='https://api-test.restapp.site'; docker compose -p rest-panel up -d --build --force-recreate
+
+# Producción
+$env:VITE_API_URL='https://api.restapp.site'; docker compose -p rest-panel up -d --build --force-recreate
 ```
 
-### 5.6) Producción con Docker
-
-> Este comando conecta ambos contenedores a la API real de producción.
-
-```powershell
-'API_BASE_URL=https://api.restapp.site' | Set-Content app/.env; 'VITE_API_URL=https://api.restapp.site' | Set-Content admin/.env; docker compose --env-file app/.env -f app/docker-compose.yml -p restapp up -d --build --force-recreate; docker compose --env-file admin/.env -f admin/docker-compose.yml -p rest-panel up -d --build --force-recreate
-```
-
-Después de levantar con Docker:
+Direcciones de los contenedores:
 
 - Flutter Web: `http://localhost:8081`.
 - Panel: `http://localhost:8080`.
