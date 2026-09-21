@@ -1,44 +1,280 @@
-# REST — Orquestador de despliegue
+# REST
 
-Este repositorio integra mediante submódulos Git:
+Orquestador principal del proyecto. Integra estos repositorios como submódulos:
 
 - `app`: aplicación Flutter.
 - `admin`: panel React/Vite.
 - `backend`: API Express.
 
+## Índice
+
+1. [Cómo se selecciona la API](#1-cómo-se-selecciona-la-api)
+2. [Preparar el proyecto](#2-preparar-el-proyecto)
+3. [Ejecutar desde la terminal](#3-ejecutar-desde-la-terminal)
+4. [Ejecutar los frontends con Docker](#4-ejecutar-los-frontends-con-docker)
+5. [Comandos rápidos por entorno](#5-comandos-rápidos-por-entorno)
+6. [Seguridad de los `.env`](#6-seguridad-de-los-env)
+7. [Actualizar pruebas en el VPS](#7-actualizar-pruebas-en-el-vps)
+8. [Actualizar producción en el VPS](#8-actualizar-producción-en-el-vps)
+9. [Logs y verificación](#9-logs-y-verificación)
+
 ## 1) Cómo se selecciona la API
 
-Las URLs no están definidas en el código de los frontends. Cada instalación
-conserva un `.env` privado y la variable `API_URL` decide a qué API se conectan
-`app` y `admin`.
+Las URLs no están escritas en el código de los frontends. Cada frontend lee su
+propio `.env`:
 
-Docker Compose realiza este mapeo durante el build:
+| Entorno | URL de la API |
+|---|---|
+| Local | `http://localhost:3000` |
+| Pruebas | `https://api-test.restapp.site` |
+| Producción | `https://api.restapp.site` |
+| Universidad | `http://179.197.239.216:3000` |
 
-| `.env` del orquestador | Flutter | Panel |
-|---|---|---|
-| `API_URL` | `API_BASE_URL` | `VITE_API_URL` |
+Variables utilizadas:
 
-Por tanto, no se modifica código para cambiar de entorno: se cambia `API_URL`
-en el `.env` correspondiente y se reconstruyen los dos frontends.
+| Lugar | Variable |
+|---|---|
+| App Flutter | `API_BASE_URL` |
+| Panel React/Vite | `VITE_API_URL` |
+| Orquestador Docker | `API_URL` |
 
-| Instalación | Rama | `API_URL` |
-|---|---|---|
-| Local | `develop` | `http://localhost:3000` |
-| Pruebas | `develop` | `https://api-test.restapp.site` |
-| Producción | `main` | `https://api.restapp.site` |
-| Universidad | según corresponda | `http://179.197.239.216:3000` |
+En el orquestador, Docker Compose toma `API_URL` y la entrega automáticamente
+a ambos frontends durante el build:
 
-La URL pública de una API no es un secreto: cualquier navegador puede verla en
-el tráfico de red. Contraseñas, tokens y llaves sí deben permanecer únicamente
-en `.env` y nunca se deben subir a Git.
+```text
+API_URL ──> API_BASE_URL  (Flutter)
+        └─> VITE_API_URL  (Panel)
+```
 
-## 2) Archivos `.env` del VPS
+Después de cambiar una URL hay que volver a ejecutar o reconstruir el frontend.
 
-Cada clon conserva su propio `.env`. Los archivos `env/test.example` y
-`env/production.example` son plantillas sin secretos; no reemplaces el `.env`
-real durante una actualización.
+## 2) Preparar el proyecto
 
-Pruebas (`~/rest/rest-develop/.env`):
+### Clonado inicial
+
+```powershell
+git clone --recurse-submodules https://github.com/devHarlemHM/REST.git
+cd REST
+git switch develop
+git submodule update --init --recursive
+```
+
+Si el repositorio ya estaba clonado:
+
+```powershell
+git pull origin develop
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+### Requisitos
+
+- Flutter SDK para ejecutar `app`.
+- Node.js 24 y npm para ejecutar `admin`.
+- Docker Desktop si se utilizarán contenedores.
+- Una API disponible: local, pruebas o producción.
+
+## 3) Ejecutar desde la terminal
+
+Abre dos terminales desde la raíz del repositorio: una para Flutter y otra para
+el panel.
+
+### 3.1) Conectarse a Local
+
+Primero levanta el backend local con Docker:
+
+```powershell
+cd backend
+docker compose up -d --build
+docker compose ps
+```
+
+La API queda disponible en `http://localhost:3000`. La primera ejecución puede
+tardar mientras descarga e inicializa los modelos.
+
+Terminal 1 — Flutter:
+
+```powershell
+cd app
+
+@'
+API_BASE_URL=http://localhost:3000
+ANDROID_API_BASE_URL=http://10.0.2.2:3000
+'@ | Set-Content .env
+
+flutter pub get
+flutter run --dart-define-from-file=.env
+```
+
+Terminal 2 — Panel:
+
+```powershell
+cd admin
+
+'VITE_API_URL=http://localhost:3000' | Set-Content .env
+
+npm install
+npm run dev
+```
+
+El panel queda disponible en `http://localhost:5173`.
+
+### 3.2) Conectarse a Pruebas
+
+Terminal 1 — Flutter:
+
+```powershell
+cd app
+'API_BASE_URL=https://api-test.restapp.site' | Set-Content .env
+flutter run --dart-define-from-file=.env
+```
+
+Terminal 2 — Panel:
+
+```powershell
+cd admin
+'VITE_API_URL=https://api-test.restapp.site' | Set-Content .env
+npm run dev
+```
+
+### 3.3) Conectarse a Producción
+
+> Producción contiene datos reales. Utiliza esta opción con cuidado.
+
+Terminal 1 — Flutter:
+
+```powershell
+cd app
+'API_BASE_URL=https://api.restapp.site' | Set-Content .env
+flutter run --dart-define-from-file=.env
+```
+
+Terminal 2 — Panel:
+
+```powershell
+cd admin
+'VITE_API_URL=https://api.restapp.site' | Set-Content .env
+npm run dev
+```
+
+### 3.4) Generar una APK
+
+Primero selecciona el entorno escribiendo la URL correspondiente en
+`app/.env`. Después ejecuta:
+
+```powershell
+cd app
+flutter build apk --release --dart-define-from-file=.env
+```
+
+La APK queda en:
+
+```text
+app/build/app/outputs/flutter-apk/app-release.apk
+```
+
+Para un teléfono físico conectado al backend local, reemplaza `10.0.2.2` por
+la IP LAN del computador, por ejemplo `http://192.168.1.100:3000`.
+
+## 4) Ejecutar los frontends con Docker
+
+Los contenedores independientes utilizan los mismos `.env` creados en la
+sección anterior.
+
+### Flutter Web
+
+```powershell
+cd app
+docker compose --env-file .env -p restapp up -d --build --force-recreate
+```
+
+Disponible en `http://localhost:8081`.
+
+### Panel
+
+```powershell
+cd admin
+docker compose --env-file .env -p rest-panel up -d --build --force-recreate
+```
+
+Disponible en `http://localhost:8080`.
+
+### Ver logs
+
+```powershell
+# Desde app
+docker compose --env-file .env -p restapp logs -f app
+
+# Desde admin
+docker compose --env-file .env -p rest-panel logs -f admin
+```
+
+### Detenerlos
+
+```powershell
+# Desde app
+docker compose --env-file .env -p restapp down
+
+# Desde admin
+docker compose --env-file .env -p rest-panel down
+
+# Desde backend, si también levantaste la API local
+docker compose down
+```
+
+## 5) Comandos rápidos por entorno
+
+### Local
+
+```powershell
+# app/.env
+@'
+API_BASE_URL=http://localhost:3000
+ANDROID_API_BASE_URL=http://10.0.2.2:3000
+'@ | Set-Content app/.env
+
+# admin/.env
+'VITE_API_URL=http://localhost:3000' | Set-Content admin/.env
+```
+
+### Pruebas
+
+```powershell
+'API_BASE_URL=https://api-test.restapp.site' | Set-Content app/.env
+'VITE_API_URL=https://api-test.restapp.site' | Set-Content admin/.env
+```
+
+### Producción
+
+```powershell
+'API_BASE_URL=https://api.restapp.site' | Set-Content app/.env
+'VITE_API_URL=https://api.restapp.site' | Set-Content admin/.env
+```
+
+Después de seleccionar el entorno:
+
+```powershell
+# Terminal 1
+cd app
+flutter run --dart-define-from-file=.env
+
+# Terminal 2, desde la raíz del repositorio
+cd admin
+npm run dev
+```
+
+## 6) Seguridad de los `.env`
+
+- Los `.env` reales están ignorados por Git.
+- Solo se versionan archivos `.env.example` sin secretos.
+- No subas `POSTGRES_PASSWORD`, `JWT_SECRET`, tokens ni llaves privadas.
+- Las URLs de una API consumida por el navegador son públicas por naturaleza.
+- Las variables `VITE_*` se incorporan al JavaScript compilado; nunca guardes
+  secretos en ellas.
+
+## 7) Actualizar pruebas en el VPS
+
+El clon de pruebas está en `~/rest/rest-develop`. Su `.env` debe conservar:
 
 ```dotenv
 COMPOSE_PROJECT_NAME=rest-test
@@ -46,70 +282,7 @@ NODE_ENV=testing
 API_URL=https://api-test.restapp.site
 ```
 
-Producción (`~/rest/rest-main/.env`):
-
-```dotenv
-COMPOSE_PROJECT_NAME=rest-production
-NODE_ENV=production
-API_URL=https://api.restapp.site
-```
-
-El resto de variables y secretos actuales se conservan sin cambios. Para
-proteger y comprobar solo la URL:
-
-```bash
-chmod 600 .env
-grep '^API_URL=' .env
-```
-
-## 3) Uso local del orquestador
-
-Crea el `.env` desde una plantilla y establece la URL local:
-
-```bash
-cp env/test.example .env
-sed -i 's|^API_URL=.*|API_URL=http://localhost:3000|' .env
-# Completa POSTGRES_PASSWORD, JWT_SECRET y las demás credenciales.
-docker compose --env-file .env up -d --build
-```
-
-Para usar otra API, cambia únicamente `API_URL` antes del build:
-
-```dotenv
-# Pruebas
-API_URL=https://api-test.restapp.site
-
-# Producción
-API_URL=https://api.restapp.site
-
-# Universidad
-API_URL=http://179.197.239.216:3000
-```
-
-Después de cada cambio de URL hay que reconstruir `app` y `admin`, porque las
-variables de Vite y Flutter se incorporan al frontend compilado:
-
-```bash
-docker compose --env-file .env build --no-cache app admin
-docker compose --env-file .env up -d --force-recreate --no-deps app admin
-```
-
-## 4) Gateway compartido
-
-El gateway se inicia una sola vez, normalmente desde producción:
-
-```bash
-cd ~/rest/rest-main
-cp env/gateway.example .env.gateway
-docker compose --env-file .env.gateway -f docker-compose.gateway.yml up -d --build
-```
-
-## 5) Actualizar pruebas en el VPS
-
-La ruta actual de pruebas es `~/rest/rest-develop`. El siguiente procedimiento
-crea primero una rama de respaldo del commit local y después sincroniza el clon
-exactamente con `origin/develop`. El `.env` no se pierde porque está ignorado
-por Git.
+No reemplaces el `.env` completo porque contiene los secretos del servidor.
 
 ```bash
 set -e
@@ -132,12 +305,18 @@ docker compose --env-file .env up -d --force-recreate --no-deps app admin
 docker compose --env-file .env ps app admin
 ```
 
-Esto no recrea `backend`, PostgreSQL, Ollama ni Sentiment.
+Estos comandos no recrean backend, PostgreSQL, Ollama ni Sentiment.
 
-## 6) Actualizar producción en el VPS
+## 8) Actualizar producción en el VPS
 
-Ejecuta estos comandos después de integrar `develop` en `main`. Si el clon de
-producción tiene otro nombre, sustituye únicamente la primera ruta.
+Ejecuta esta sección después de integrar `develop` en `main`. El `.env` de
+producción debe conservar:
+
+```dotenv
+COMPOSE_PROJECT_NAME=rest-production
+NODE_ENV=production
+API_URL=https://api.restapp.site
+```
 
 ```bash
 set -e
@@ -160,16 +339,16 @@ docker compose --env-file .env up -d --force-recreate --no-deps app admin
 docker compose --env-file .env ps app admin
 ```
 
-## 7) Verificación y logs
+## 9) Logs y verificación
 
-Revisiones desplegadas:
+### Revisiones desplegadas
 
 ```bash
 git log -1 --oneline
 git submodule status app admin
 ```
 
-Logs de pruebas:
+### Pruebas
 
 ```bash
 docker logs --tail=100 -f rest-test-app-1
@@ -178,7 +357,7 @@ docker logs --tail=100 -f rest-test-backend-1
 docker logs --tail=100 -f rest-test-ollama-1
 ```
 
-Logs de producción:
+### Producción
 
 ```bash
 docker logs --tail=100 -f rest-production-app-1
@@ -187,20 +366,20 @@ docker logs --tail=100 -f rest-production-backend-1
 docker logs --tail=100 -f rest-production-ollama-1
 ```
 
-Comprobar las APIs públicas:
+### Estado de las APIs
 
 ```bash
 curl -fsS https://api-test.restapp.site/health
 curl -fsS https://api.restapp.site/health
 ```
 
-## 8) Actualizar todo el entorno
+## Actualizar todo el entorno del VPS
 
-Solo cuando también se deban reconstruir backend y servicios internos:
+Solo cuando también sea necesario reconstruir backend y servicios internos:
 
 ```bash
 docker compose --env-file .env up -d --build
 ```
 
-No ejecutes `backend/docker-compose.yml` en el VPS; el `docker-compose.yml` de
-este repositorio es el orquestador de cada entorno.
+No ejecutes `backend/docker-compose.yml` en el VPS. El `docker-compose.yml` de
+este repositorio es el orquestador de cada entorno desplegado.
